@@ -12,8 +12,6 @@ file_name = config.file_name
 
 bot = telebot.TeleBot(token=TG_TOKEN)
 
-info = {}
-
 
 def add_figis_to_file(tickers: List[str]) -> None:
     share_figi = {}
@@ -27,6 +25,7 @@ def add_figis_to_file(tickers: List[str]) -> None:
 
 
 def get_last_prices() -> dict:
+    info = {}
     with Client(TOKEN) as client:
         with open(file_name) as json_file:
             data: dict = json.load(json_file)
@@ -44,12 +43,14 @@ def main(message):
     bot.send_message(message.chat.id,'Добро пожаловать, для того что бы посмотреть актуальные котировки нажмите /get_prices')
 
 
+# (https://www.tinkoff.ru/invest/stocks/{ticker}/) (https://stockcharts.com/c-sc/sc?s={ticker}&p=D&b=5&g=0&i=0&r=1659368752842)
+
 @bot.message_handler(commands=['get_prices'])
 def show_data(message):
     last_prices = get_last_prices()
     text = ''
     for ticker, price in last_prices.items():
-        text += f'[{ticker}](https://www.tinkoff.ru/invest/stocks/{ticker}/) : {price}$\n'
+        text += f'[{ticker}](https://www.tinkoff.ru/invest/stocks/{ticker}/) - {price}$ [график](https://stockcharts.com/c-sc/sc?s={ticker}&p=D&b=5&g=0&i=0&r=1659368752842.img)\n'
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 
