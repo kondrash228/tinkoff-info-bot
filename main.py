@@ -10,7 +10,6 @@ import config
 
 TOKEN = config.TOKEN
 TG_TOKEN = config.TG_TOKEN
-# shares = config.shares
 file_name = config.file_name
 
 bot = telebot.TeleBot(token=TG_TOKEN)
@@ -18,42 +17,41 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 def check_instrument(ticker: str) -> bool:
-    dirs = os.listdir()
-    logging.info(dirs)
-    if os.path.exists(file_name):
-        logging.info(f'Файл с именем {file_name} уже существует')
-        with open(file_name) as file:
-            data = json.load(file)
-            logging.info(f'Файл прочитан {data}')
+    if os.path.getsize(file_name) == 0:
+        return True
+    with open(file_name) as file:
+        data = json.load(file)
+        if ticker in data.keys():
+            return False
+        else:
+            return True
 
 
-
-
-def add_new_instruments() -> List[str]:  # перед тем как добваить инструмент нужно считать уже имеющийся и проверить на дубликат
-    tickers = []
+def add_new_instruments():
+    if not os.path.exists(file_name):
+        open(file_name, 'w+')
+        logging.info(f'Файл {file_name} успешно создан')
+    share_figi = {}
     print("Что бы добавить новый инструмент введите их")
     while True:
-        x = input()
-        if x:
-            if check_instrument(x):
-                tickers.append(x.strip())
+        ticker = input().strip().upper()
+        if ticker:
+            if check_instrument(ticker):
+                with Client(TOKEN) as client:
+                    share = client.instruments.share_by(id_type=InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER, class_code='SPBXM', id=ticker)
+                    share_figi[ticker] = share.instrument.figi
+            else:
+                print(f'Тикер {ticker} уже добвален')
+                logging.info(f'Тикер {ticker} уже добвален')
         else:
-            break
-
-    logging.info(f'Инструменты успешно добвалены, {tickers}')
-    return tickers
-
-
-def add_figis_to_file(tickers: List[str]) -> None:
-    share_figi = {}
-    with Client(TOKEN) as client:
-        for tick in tickers:
-            share = client.instruments.share_by(id_type=InstrumentIdType.INSTRUMENT_ID_TYPE_TICKER, class_code='SPBXM',
-                                                id=tick)
-            share_figi[tick] = share.instrument.figi
-        with open(file_name, 'w') as file:
-            json.dump(share_figi, file)
-            logging.info(f'Тикеры записаны в файл {file_name}')
+            if len(share_figi.keys()) == 0:
+                logging.info('Ни одного тикера добавлено не было')
+                break
+            else:
+                with open(file_name, 'w') as file:
+                    json.dump(share_figi, file)
+                    logging.info(f'Тикеры {share_figi.keys()} записаны в файл {file_name}')
+                    break
 
 
 def get_last_prices() -> dict:
@@ -90,7 +88,5 @@ def show_data(message):
 
 
 if __name__ == '__main__':
-    shares = add_new_instruments()
-    add_figis_to_file(shares)
-    check_instrument()
+    add_new_instruments()
     bot.polling()
