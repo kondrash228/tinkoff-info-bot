@@ -6,3 +6,4 @@ test.py
 ...\img.jpg
 streaming_utils.py
 tests.py
+.DS_Store
