@@ -24,8 +24,10 @@ def show_data(message: telebot.types.Message):
         text = ''
         for ticker, price in last_prices.items():
             text += f'[{ticker}](https://www.tinkoff.ru/invest/stocks/{ticker}/) - {price}$ [график](https://stockcharts.com/c-sc/sc?s={ticker}&p=D&b=5&g=0&i=0&r=1659368752842.img)\n'
+        logging.info(f'Добавленные тикеры, график, последние цены {text}')
         bot.send_message(message.chat.id, text, parse_mode='Markdown')
     else:
+        logging.info('Не добавлено ни одного стикера')
         bot.send_message(message.chat.id, 'Не добавлено ни одного стикера')
 
 
@@ -35,7 +37,6 @@ def trade(message: telebot.types.Message):
     text = ''
     for i in range(len(favourite_tickers)):
         text += f'{favourite_tickers[i]} - {i}\n'
-
     bot.send_message(message.chat.id, f'ИЗБРАННОЕ\n{text}')
     bot.send_message(message.chat.id, 'Что бы выставить заявку, выберете из списка желаемую акцию')
     bot.register_next_step_handler(message, start_streaming)
@@ -46,14 +47,19 @@ def start_streaming(message: telebot.types.Message):
     bot.send_message(message.chat.id, f'Вы выбрали акцию - {favorites[int(message.text)]}')
     with Client(TOKEN) as client:
         order_book = client.market_data.get_order_book(figi=get_figi(favorites[int(message.text)]), depth=1)
+        if len(order_book.bids) == 0 or len(order_book.asks) == 0:
+            logging.info(f'Нет доступных предложений в стакане {order_book}')
+            last_price = order_book.last_price.units + (order_book.last_price.nano / pow(10, 9))
+            bot.send_message(message.chat.id, f'Нет доступных предложений в стакане, последняя цена - {last_price}, попробуйте позже')
+        else:
+            logging.info('Отправляем текущие бид и аск')
+            bids = order_book.bids[0].price.units + (order_book.bids[0].price.nano / pow(10, 9))
+            asks = order_book.asks[0].price.units + (order_book.asks[0].price.nano / pow(10, 9))
 
-        bids = order_book.bids[0].price.units + (order_book.bids[0].price.nano / pow(10, 9))
-        asks = order_book.asks[0].price.units + (order_book.asks[0].price.nano / pow(10, 9))
+            bids_quantity = order_book.bids[0].quantity
+            asks_quantity = order_book.asks[0].quantity
 
-        bids_quantity = order_book.bids[0].quantity
-        asks_quantity = order_book.asks[0].quantity
-
-    bot.send_message(message.chat.id, f'[bids]: {bids}\t[quantity]: {bids_quantity}\n[asks]: {asks}\t[quantity]: {asks_quantity}')
+            bot.send_message(message.chat.id, f'[bids]: {bids}\t[quantity]: {bids_quantity}\n[asks]: {asks}\t[quantity]: {asks_quantity}')
 
 
 @bot.message_handler(commands=['streaming'])
